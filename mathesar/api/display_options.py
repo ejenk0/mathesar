@@ -48,8 +48,7 @@ DISPLAY_OPTIONS_BY_UI_TYPE = LazyDictionary(
             "options": [
                 {
                     "name": "show_as_percentage",
-                    "type": "string",
-                    "enum": ['dropdown', 'checkbox']
+                    "type": "boolean",
                 },
                 {
                     "name": "use_grouping",
