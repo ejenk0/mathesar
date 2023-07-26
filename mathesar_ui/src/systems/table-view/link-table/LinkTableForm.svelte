@@ -52,6 +52,9 @@
   export let base: TableEntry;
   export let close: () => void;
 
+  $: targetTable = requiredField<TableEntry | undefined>(undefined);
+  $: target = $targetTable;
+
   // ===========================================================================
   // Prerequisite data
   // ===========================================================================
@@ -71,8 +74,6 @@
   // ===========================================================================
   // Fields
   // ===========================================================================
-  $: targetTable = requiredField<TableEntry | undefined>(undefined);
-  $: target = $targetTable;
   $: isSelfReferential = base.id === target?.id;
   $: linkTypes = ((): LinkType[] =>
     isSelfReferential

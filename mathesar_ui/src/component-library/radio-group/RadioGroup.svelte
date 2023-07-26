@@ -12,7 +12,8 @@
   export let ariaLabel: string | undefined = undefined;
   export let radioLabelKey: string | undefined = undefined;
   export let getRadioLabel: LabelGetter<Option> | undefined = undefined;
-  export let disabled = false;
+  let isGroupDisabled = false;
+  export { isGroupDisabled as disabled };
   export let boxed = false;
 
   /**
@@ -36,7 +37,7 @@
   {options}
   {label}
   {ariaLabel}
-  {disabled}
+  disabled={isGroupDisabled}
   {boxed}
   let:option
   let:disabled
