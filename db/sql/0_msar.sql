@@ -296,6 +296,17 @@ END;
 $$ LANGUAGE plpgsql RETURNS NULL ON NULL INPUT;
 
 
+CREATE OR REPLACE FUNCTION msar.is_key_col(rel_id oid, col_id integer) RETURNS boolean AS $$/*
+Return true if the given column is in a primary or foreign key of the given relation.
+Args:
+  rel_id:  The OID of the relation.
+  col_id:  The attnum of the column in the relation.
+*/
+SELECT bool_or(ARRAY[col_id::smallint] <@ conkey)
+FROM pg_constraint WHERE conrelid=rel_id AND (contype='p' OR contype='f');
+$$ LANGUAGE SQL RETURNS NULL ON NULL INPUT;
+
+
 CREATE OR REPLACE FUNCTION
 msar.is_default_possibly_dynamic(tab_id oid, col_id integer) RETURNS boolean AS $$/*
 Determine whether the default value for the given column is an expression or constant.
@@ -2351,3 +2362,29 @@ BEGIN
   RETURN jsonb_build_array(extracted_table_id, fkey_attnum);
 END;
 $f$ LANGUAGE plpgsql;
+
+
+CREATE OR REPLACE FUNCTION
+msar.move_columns_between_linked_tables(
+  source_tab_id oid, target_tab_id oid, col_ids integer[]
+) RETURNS oid[] AS $$/*
+*/
+DECLARE
+  col_names text[];
+  col_defs __msar.col_def[];
+  col_id integer;
+  fkey_id oid;
+  tab_name text;
+BEGIN
+  FOREACH col_id IN ARRAY col_ids LOOP
+    IF msar.is_key_col(source_tab_id, col_id) THEN
+      RAISE EXCEPTION '% is a key column.', msar.get_column_name(source_tab_id, col_id);
+    END IF;
+  END LOOP;
+  col_names := msar.get_column_names(source_tab_id, col_ids, false);
+  col_defs := msar.get_duplicate_col_defs(source_tab_id, col_ids::smallint[], col_names, true);
+  tab_name := __msar.get_relation_name(target_tab_id);
+  RAISE NOTICE '%', __msar.add_columns(tab_name, VARIADIC col_defs);
+  RETURN ARRAY[source_tab_id, target_tab_id];
+END;
+$$ LANGUAGE plpgsql RETURNS NULL ON NULL INPUT;

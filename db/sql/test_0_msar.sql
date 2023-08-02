@@ -1783,3 +1783,52 @@ BEGIN
   );
 END;
 $f$ LANGUAGE plpgsql;
+
+
+CREATE OR REPLACE FUNCTION test_move_columns_single() RETURNS SETOF TEXT AS $$
+BEGIN
+  PERFORM msar.extract_columns_from_table('"Roster"'::regclass::oid, ARRAY[3, 5], 'Classes', null);
+  PERFORM msar.move_columns_between_linked_tables(
+    '"Roster"'::regclass::oid, '"Classes"'::regclass::oid, ARRAY[4]
+  );
+  RETURN NEXT columns_are('Classes', ARRAY['id', 'Teacher', 'Subject', 'Teacher Email']);
+END;
+$$ LANGUAGE plpgsql;
+
+
+CREATE OR REPLACE FUNCTION test_move_columns_multi() RETURNS SETOF TEXT AS $$
+BEGIN
+  PERFORM msar.extract_columns_from_table('"Roster"'::regclass::oid, ARRAY[5], 'Classes', null);
+  PERFORM msar.move_columns_between_linked_tables(
+    '"Roster"'::regclass::oid, '"Classes"'::regclass::oid, ARRAY[3, 4]
+  );
+  RETURN NEXT columns_are('Classes', ARRAY['id', 'Teacher', 'Subject', 'Teacher Email']);
+END;
+$$ LANGUAGE plpgsql;
+
+
+CREATE OR REPLACE FUNCTION test_move_columns_throws() RETURNS SETOF TEXT AS $$
+BEGIN
+  PERFORM msar.extract_columns_from_table('"Roster"'::regclass::oid, ARRAY[5], 'Classes', null);
+  RETURN NEXT throws_ok(
+    format(
+      'SELECT msar.move_columns_between_linked_tables(%s, %s, ARRAY[1]);',
+      '"Roster"'::regclass::oid,
+      '"Classes"'::regclass::oid
+    ),
+    'P0001',
+    'id is a key column.',
+    'Column mover throws instead of moving pkey'
+  );
+  RETURN NEXT throws_ok(
+    format(
+      'SELECT msar.move_columns_between_linked_tables(%s, %s, ARRAY[7]);',
+      '"Roster"'::regclass::oid,
+      '"Classes"'::regclass::oid
+    ),
+    'P0001',
+    '"Classes_id" is a key column.',
+    'Column mover throws instead of moving pkey'
+  );
+END;
+$$ LANGUAGE plpgsql;
