@@ -223,6 +223,23 @@ $$ LANGUAGE sql RETURNS NULL ON NULL INPUT;
 
 
 CREATE OR REPLACE FUNCTION
+msar.get_column_names(rel_id oid, col_ids integer[], quoted boolean) RETURNS text[] AS $$/*
+Return the names for the given columns in a relation (e.g., table).
+
+Args:
+  rel_id: The OID of the relation whose columns we want.
+  col_ids: An array of the attnums of the columns whose names we want.
+*/
+SELECT array_agg(
+  CASE
+    WHEN quoted THEN quote_ident(attname::text)
+    ELSE attname::text
+  END
+) FROM pg_attribute pa JOIN unnest(col_ids) ci(attnum) ON pa.attnum=ci.attnum WHERE attrelid=rel_id;
+$$ LANGUAGE SQL RETURNS NULL ON NULL INPUT;
+
+
+CREATE OR REPLACE FUNCTION
 msar.get_column_names(rel_id oid, columns jsonb) RETURNS text[] AS $$/*
 Return the names for given columns in a given relation (e.g., table).
 
