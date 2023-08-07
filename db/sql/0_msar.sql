@@ -2387,6 +2387,61 @@ $f$ LANGUAGE plpgsql;
 
 
 CREATE OR REPLACE FUNCTION
+msar.choose_column_moving_fkey(source_tab_id oid, target_tab_id oid) RETURNS oid AS $$ /*
+Choose a foreign key for moving columns between the given tables.
+
+Args:
+  source_tab_id: the OID of the table from which we're moving the columns
+  target_tab_id: the OID of the table to which we're moving the columns
+*/
+SELECT f.oid
+-- Restrict to case where the foreign key points to the primary key of the referent
+FROM pg_constraint f INNER JOIN pg_constraint p ON f.confrelid=p.conrelid AND f.confkey=p.conkey
+WHERE
+  -- We only want fkeys that actually use the given tables (in the forward direction)
+  f.conrelid=source_tab_id AND f.confrelid=target_tab_id
+  AND f.contype='f' AND p.contype='p'
+  -- We further restrict to the case of single-column fkeys
+  AND array_length(f.conkey, 1)=1
+-- We order by OID since the first result (which we return) will be the first created, which will
+-- always be the one created when extracting columns, if that's how these tables came to be linked.
+ORDER BY f.oid LIMIT 1;
+$$ LANGUAGE SQL RETURNS NULL ON NULL INPUT;
+
+
+CREATE OR REPLACE FUNCTION __msar.build_data_move_expr(
+  source_tab_id oid, target_tab_id oid, col_defs __msar.col_def[]
+) AS $$
+SELECT format($t$
+  WITH join_cte AS (
+    SELECT * FROM
+  )
+  WITH dist_cte AS (
+    SELECT DISTINCT col1 FROM dupy ORDER BY col1
+  ),
+    del_cte AS (DELETE FROM dupy) INSERT INTO dupy (col1) SELECT * FROM dist_cte;
+$t$)
+
+$$ LANGUAGE SQL;
+
+
+CREATE OR REPLACE FUNCTION
+__msar.build_col_move_order_by(
+  source_fkey_col_name text,
+  target_pkey_col_name text,
+  mov_col_defs __msar.col_def[]
+) RETURNS text AS $$
+SELECT format(
+  'ORDER BY %s, %s, %s NULLS LAST',
+  source_fkey_col_name,
+  target_fkey_col_name,
+  string_agg(mov_col.name_, ', ')
+)
+FROM unnest(mov_col_defs) x(mov_col)
+$$ LANGUAGE SQL RETURNS NULL ON NULL INPUT;;
+
+
+CREATE OR REPLACE FUNCTION
 msar.move_columns_between_linked_tables(
   source_tab_id oid, target_tab_id oid, col_ids integer[]
 ) RETURNS oid[] AS $$/*
@@ -2396,7 +2451,10 @@ DECLARE
   col_defs __msar.col_def[];
   col_id integer;
   fkey_id oid;
-  tab_name text;
+  source_table_name text;
+  source_fkey_col_name text;
+  target_table_name text;
+  source_pkey_col_name text;
 BEGIN
   FOREACH col_id IN ARRAY col_ids LOOP
     IF msar.is_key_col(source_tab_id, col_id) THEN
@@ -2405,8 +2463,10 @@ BEGIN
   END LOOP;
   col_names := msar.get_column_names(source_tab_id, col_ids, false);
   col_defs := msar.get_duplicate_col_defs(source_tab_id, col_ids::smallint[], col_names, true);
-  tab_name := __msar.get_relation_name(target_tab_id);
-  RAISE NOTICE '%', __msar.add_columns(tab_name, VARIADIC col_defs);
+  source_tab_name := __msar.get_relation_name(source_tab_id);
+  target_tab_name := __msar.get_relation_name(target_tab_id);
+  RAISE NOTICE '%', __msar.add_columns(target_table_name, VARIADIC col_defs);
+
   RETURN ARRAY[source_tab_id, target_tab_id];
 END;
 $$ LANGUAGE plpgsql RETURNS NULL ON NULL INPUT;
