@@ -12,6 +12,8 @@ services:
       dockerfile: Dockerfile.devdb
       args:
         PG_VERSION: ${PG_VERSION-13}
+    cap_add:
+      - NET_ADMIN
     environment:
       - PG_VERSION=${PG_VERSION-13}
       - POSTGRES_DB=mathesar_django
@@ -51,6 +53,8 @@ services:
       dockerfile: Dockerfile
       args:
         PYTHON_REQUIREMENTS: requirements-dev.txt
+    cap_add:
+      - NET_ADMIN
     extends:
       file: docker-compose.yml
       service: service
