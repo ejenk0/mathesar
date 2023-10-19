@@ -54,7 +54,7 @@ You should have permission to install a debian package
 
     Mathesar is now installed! You can use it by visiting `http://localhost:8000` or the domain you've set up.
 
-    You'll be prompted to set up an admin user account and add user database credentials the first time you open Mathesar. Just follow the instructions on screen.
+    You'll be prompted to set up an admin user account and add [user database][userdb] credentials the first time you open Mathesar. Just follow the instructions on screen.
 
 
 ## Configuring Mathesar {:#configuration}
